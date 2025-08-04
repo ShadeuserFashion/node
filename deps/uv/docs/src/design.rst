@@ -4,11 +4,13 @@
 Design overview
 ===============
 
-libuv is cross-platform support library which was originally written for NodeJS. It's designed
+libuv is cross-platform support library which was originally written for `Node.js`_. It's designed
 around the event-driven asynchronous I/O model.
 
-The library provides much more than simply abstraction over different I/O polling mechanisms:
-'handles' and 'streams' provde a high level abstraction for sockets and other entities;
+.. _Node.js: https://nodejs.org
+
+The library provides much more than a simple abstraction over different I/O polling mechanisms:
+'handles' and 'streams' provide a high level abstraction for sockets and other entities;
 cross-platform file I/O and threading functionality is also provided, amongst other things.
 
 Here is a diagram illustrating the different parts that compose libuv and what subsystem they
@@ -25,9 +27,10 @@ Handles and requests
 libuv provides users with 2 abstractions to work with, in combination with the event loop:
 handles and requests.
 
-Handles represent long-lived objects capable of performing certain operations while active. Some
-examples: a prepare handle gets its callback called once every loop iteration when active, and
-a TCP server handle get its connection callback called every time there is a new connection.
+Handles represent long-lived objects capable of performing certain operations while active. Some examples:
+
+- A prepare handle gets its callback called once every loop iteration when active.
+- A TCP server handle that gets its connection callback called every time there is a new connection.
 
 Requests represent (typically) short-lived operations. These operations can be performed over a
 handle: write requests are used to write data on a handle; or standalone: getaddrinfo requests
@@ -40,9 +43,9 @@ The I/O loop
 The I/O (or event) loop is the central part of libuv. It establishes the content for all I/O
 operations, and it's meant to be tied to a single thread. One can run multiple event loops
 as long as each runs in a different thread. The libuv event loop (or any other API involving
-the loop or handles, for that matter) **is not thread-safe** except stated otherwise.
+the loop or handles, for that matter) **is not thread-safe** except where stated otherwise.
 
-The event loop follows the rather usual single threaded asynchronous I/O approah: all (network)
+The event loop follows the rather usual single threaded asynchronous I/O approach: all (network)
 I/O is performed on non-blocking sockets which are polled using the best mechanism available
 on the given platform: epoll on Linux, kqueue on OSX and other BSDs, event ports on SunOS and IOCP
 on Windows. As part of a loop iteration the loop will block waiting for I/O activity on sockets
@@ -57,15 +60,14 @@ stages of a loop iteration:
     :align: center
 
 
-#. The loop concept of 'now' is updated. The event loop caches the current time at the start of
-   the event loop tick in order to reduce the number of time-related system calls.
+#. The loop concept of 'now' is initially set.
+
+#. Due timers are run if the loop was run with ``UV_RUN_DEFAULT``. All active timers scheduled
+   for a time before the loop's concept of *now* get their callbacks called.
 
 #. If the loop is *alive*  an iteration is started, otherwise the loop will exit immediately. So,
    when is a loop considered to be *alive*? If a loop has active and ref'd handles, active
    requests or closing handles it's considered to be *alive*.
-
-#. Due timers are run. All active timers scheduled for a time before the loop's concept of *now*
-   get their callbacks called.
 
 #. Pending callbacks are called. All I/O callbacks are called right after polling for I/O, for the
    most part. There are cases, however, in which calling such a callback is deferred for the next
@@ -85,11 +87,11 @@ stages of a loop iteration:
         * If there are no active handles or requests, the timeout is 0.
         * If there are any idle handles active, the timeout is 0.
         * If there are any handles pending to be closed, the timeout is 0.
-        * If none of the above cases was matched, the timeout of the closest timer is taken, or
+        * If none of the above cases matches, the timeout of the closest timer is taken, or
           if there are no active timers, infinity.
 
-#. The loop blocks for I/O. At this point the loop will block for I/O for the timeout calculated
-   on the previous step. All I/O related handles that were monitoring a given file descriptor
+#. The loop blocks for I/O. At this point the loop will block for I/O for the duration calculated
+   in the previous step. All I/O related handles that were monitoring a given file descriptor
    for a read or write operation get their callbacks called at this point.
 
 #. Check handle callbacks are called. Check handles get their callbacks called right after the
@@ -98,13 +100,15 @@ stages of a loop iteration:
 #. Close callbacks are called. If a handle was closed by calling :c:func:`uv_close` it will
    get the close callback called.
 
-#. Special case in case the loop was run with ``UV_RUN_ONCE``, as it implies forward progress.
-   It's possible that no I/O callbacks were fired after blocking for I/O, but some time has passed
-   so there might be timers which are due, those timers get their callbacks called.
+#. The loop concept of 'now' is updated.
+
+#. Due timers are run. Note that 'now' is not updated again until the next loop iteration.
+   So if a timer became due while other timers were being processed, it won't be run until
+   the following event loop iteration.
 
 #. Iteration ends. If the loop was run with ``UV_RUN_NOWAIT`` or ``UV_RUN_ONCE`` modes the
-   iteration is ended and :c:func:`uv_run` will return. If the loop was run with ``UV_RUN_DEFAULT``
-   it will contionue from the start if it's asill *alive*, otherwise it will also end.
+   iteration ends and :c:func:`uv_run` will return. If the loop was run with ``UV_RUN_DEFAULT``
+   it will continue from the start if it's still *alive*, otherwise it will also end.
 
 
 .. important::
@@ -113,7 +117,7 @@ stages of a loop iteration:
 
 .. note::
     While the polling mechanism is different, libuv makes the execution model consistent
-    Unix systems and Windows.
+    across Unix systems and Windows.
 
 
 File I/O
@@ -122,13 +126,13 @@ File I/O
 Unlike network I/O, there are no platform-specific file I/O primitives libuv could rely on,
 so the current approach is to run blocking file I/O operations in a thread pool.
 
-For a thorough explanation of the cross-platform file I/O landscape, checkout
-`this post <http://blog.libtorrent.org/2012/10/asynchronous-disk-io/>`_.
+For a thorough explanation of the cross-platform file I/O landscape, check out
+`this post <https://blog.libtorrent.org/2012/10/asynchronous-disk-io/>`_.
 
-libuv currently uses a global thread pool on which all loops can queue work on. 3 types of
+libuv currently uses a global thread pool on which all loops can queue work. 3 types of
 operations are currently run on this pool:
 
-    * Filesystem operations
+    * File system operations
     * DNS functions (getaddrinfo and getnameinfo)
     * User specified code via :c:func:`uv_queue_work`
 

@@ -1,1 +1,1 @@
-#include "../../crypto/srp/srp.h"
+#include "../../../config/srp.h"

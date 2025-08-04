@@ -28,6 +28,16 @@
 /* Actual benchmarks and helpers are defined in benchmark-list.h */
 #include "benchmark-list.h"
 
+#ifdef __MVS__
+#include "zos-base.h"
+/* Initialize environment and zoslib */
+__attribute__((constructor)) void init() {
+  zoslib_config_t config;
+  init_zoslib_config(&config);
+  init_zoslib(config);
+}
+#endif
+
 
 static int maybe_run_test(int argc, char **argv);
 
@@ -40,8 +50,9 @@ int main(int argc, char **argv) {
   case 2: return maybe_run_test(argc, argv);
   case 3: return run_test_part(argv[1], argv[2]);
   default:
-    LOGF("Too many arguments.\n");
-    return 1;
+    fprintf(stderr, "Too many arguments.\n");
+    fflush(stderr);
+    return EXIT_FAILURE;
   }
 }
 

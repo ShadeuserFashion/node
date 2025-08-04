@@ -2,6 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifndef V8_BASE_CPU_H_
+#define V8_BASE_CPU_H_
+
 // This module contains the architecture-specific code. This make the rest of
 // the code less dependent on differences between different processor
 // architecture.
@@ -10,9 +13,7 @@
 // The build system then uses the implementation for the target architecture.
 //
 
-#ifndef V8_BASE_CPU_H_
-#define V8_BASE_CPU_H_
-
+#include "src/base/base-export.h"
 #include "src/base/macros.h"
 
 namespace v8 {
@@ -28,7 +29,7 @@ namespace base {
 // architectures. For each architecture the file cpu_<arch>.cc contains the
 // implementation of these static functions.
 
-class CPU FINAL {
+class V8_BASE_EXPORT CPU final {
  public:
   CPU();
 
@@ -43,20 +44,33 @@ class CPU FINAL {
 
   // arm implementer/part information
   int implementer() const { return implementer_; }
-  static const int ARM = 0x41;
-  static const int NVIDIA = 0x4e;
-  static const int QUALCOMM = 0x51;
+  static const int kArm = 0x41;
+  static const int kNvidia = 0x4e;
+  static const int kQualcomm = 0x51;
   int architecture() const { return architecture_; }
+  int variant() const { return variant_; }
+  static const int kNvidiaDenver = 0x0;
   int part() const { return part_; }
-  static const int ARM_CORTEX_A5 = 0xc05;
-  static const int ARM_CORTEX_A7 = 0xc07;
-  static const int ARM_CORTEX_A8 = 0xc08;
-  static const int ARM_CORTEX_A9 = 0xc09;
-  static const int ARM_CORTEX_A12 = 0xc0c;
-  static const int ARM_CORTEX_A15 = 0xc0f;
+
+  // ARM-specific part codes
+  static const int kArmCortexA5 = 0xc05;
+  static const int kArmCortexA7 = 0xc07;
+  static const int kArmCortexA8 = 0xc08;
+  static const int kArmCortexA9 = 0xc09;
+  static const int kArmCortexA12 = 0xc0c;
+  static const int kArmCortexA15 = 0xc0f;
+
+  // Denver-specific part code
+  static const int kNvidiaDenverV10 = 0x002;
+
+  // PPC-specific part codes
+  enum { kPPCPower8, kPPCPower9, kPPCPower10 };
 
   // General features
   bool has_fpu() const { return has_fpu_; }
+  int icache_line_size() const { return icache_line_size_; }
+  int dcache_line_size() const { return dcache_line_size_; }
+  static const int kUnknownCacheLineSize = 0;
 
   // x86 features
   bool has_cmov() const { return has_cmov_; }
@@ -68,6 +82,32 @@ class CPU FINAL {
   bool has_ssse3() const { return has_ssse3_; }
   bool has_sse41() const { return has_sse41_; }
   bool has_sse42() const { return has_sse42_; }
+  bool has_osxsave() const { return has_osxsave_; }
+  bool has_avx() const { return has_avx_; }
+  bool has_avx2() const { return has_avx2_; }
+  bool has_avx_vnni() const { return has_avx_vnni_; }
+  bool has_avx_vnni_int8() const { return has_avx_vnni_int8_; }
+  bool has_fma3() const { return has_fma3_; }
+  bool has_f16c() const { return has_f16c_; }
+  bool has_bmi1() const { return has_bmi1_; }
+  bool has_bmi2() const { return has_bmi2_; }
+  bool has_lzcnt() const { return has_lzcnt_; }
+  bool has_popcnt() const { return has_popcnt_; }
+  bool is_atom() const { return is_atom_; }
+  bool has_intel_jcc_erratum() const { return has_intel_jcc_erratum_; }
+  bool has_cetss() const { return has_cetss_; }
+  bool has_non_stop_time_stamp_counter() const {
+    return has_non_stop_time_stamp_counter_;
+  }
+  bool is_running_in_vm() const { return is_running_in_vm_; }
+  bool exposes_num_virtual_address_bits() const {
+    return num_virtual_address_bits_ != kUnknownNumVirtualAddressBits;
+  }
+  int num_virtual_address_bits() const {
+    DCHECK(exposes_num_virtual_address_bits());
+    return num_virtual_address_bits_;
+  }
+  static const int kUnknownNumVirtualAddressBits = 0;
 
   // arm features
   bool has_idiva() const { return has_idiva_; }
@@ -76,11 +116,36 @@ class CPU FINAL {
   bool has_vfp() const { return has_vfp_; }
   bool has_vfp3() const { return has_vfp3_; }
   bool has_vfp3_d32() const { return has_vfp3_d32_; }
+  bool has_jscvt() const { return has_jscvt_; }
+  bool has_dot_prod() const { return has_dot_prod_; }
+  bool has_lse() const { return has_lse_; }
+  bool has_mte() const { return has_mte_; }
+  bool has_sha3() const { return has_sha3_; }
+  bool has_pmull1q() const { return has_pmull1q_; }
+  bool has_fp16() const { return has_fp16_; }
+  bool has_hbc() const { return has_hbc_; }
+  bool has_cssc() const { return has_cssc_; }
 
   // mips features
   bool is_fp64_mode() const { return is_fp64_mode_; }
+  bool has_msa() const { return has_msa_; }
+
+  // riscv-specific part codes
+  bool has_rvv() const { return has_rvv_; }
+  bool has_zba() const { return has_zba_; }
+  bool has_zbb() const { return has_zbb_; }
+  bool has_zbs() const { return has_zbs_; }
+  enum class RV_MMU_MODE {
+    kRiscvSV39,
+    kRiscvSV48,
+    kRiscvSV57,
+  };
+  RV_MMU_MODE riscv_mmu() const { return riscv_mmu_; }
 
  private:
+#if defined(V8_OS_STARBOARD)
+  bool StarboardDetectCPU();
+#endif
   char vendor_[13];
   int stepping_;
   int model_;
@@ -90,7 +155,11 @@ class CPU FINAL {
   int type_;
   int implementer_;
   int architecture_;
+  int variant_;
   int part_;
+  int icache_line_size_;
+  int dcache_line_size_;
+  int num_virtual_address_bits_;
   bool has_fpu_;
   bool has_cmov_;
   bool has_sahf_;
@@ -101,15 +170,47 @@ class CPU FINAL {
   bool has_ssse3_;
   bool has_sse41_;
   bool has_sse42_;
+  bool is_atom_;
+  bool has_intel_jcc_erratum_;
+  bool has_cetss_;
+  bool has_osxsave_;
+  bool has_avx_;
+  bool has_avx2_;
+  bool has_avx_vnni_;
+  bool has_avx_vnni_int8_;
+  bool has_fma3_;
+  bool has_f16c_;
+  bool has_bmi1_;
+  bool has_bmi2_;
+  bool has_lzcnt_;
+  bool has_popcnt_;
   bool has_idiva_;
   bool has_neon_;
   bool has_thumb2_;
   bool has_vfp_;
   bool has_vfp3_;
   bool has_vfp3_d32_;
+  bool has_jscvt_;
+  bool has_dot_prod_;
+  bool has_lse_;
+  bool has_mte_;
+  bool has_sha3_;
+  bool has_pmull1q_;
+  bool has_fp16_;
+  bool has_hbc_;
+  bool has_cssc_;
   bool is_fp64_mode_;
+  bool has_non_stop_time_stamp_counter_;
+  bool is_running_in_vm_;
+  bool has_msa_;
+  RV_MMU_MODE riscv_mmu_;
+  bool has_rvv_;
+  bool has_zba_;
+  bool has_zbb_;
+  bool has_zbs_;
 };
 
-} }  // namespace v8::base
+}  // namespace base
+}  // namespace v8
 
 #endif  // V8_BASE_CPU_H_

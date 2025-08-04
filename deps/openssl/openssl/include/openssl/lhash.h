@@ -1,1 +1,1 @@
-#include "../../crypto/lhash/lhash.h"
+#include "../../../config/lhash.h"

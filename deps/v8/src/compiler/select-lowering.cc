@@ -5,46 +5,54 @@
 #include "src/compiler/select-lowering.h"
 
 #include "src/compiler/common-operator.h"
-#include "src/compiler/diamond.h"
-#include "src/compiler/generic-node-inl.h"
-#include "src/compiler/graph.h"
+#include "src/compiler/graph-assembler.h"
+#include "src/compiler/node.h"
+#include "src/compiler/turbofan-graph.h"
 
 namespace v8 {
 namespace internal {
 namespace compiler {
 
-SelectLowering::SelectLowering(Graph* graph, CommonOperatorBuilder* common)
-    : common_(common),
-      graph_(graph),
-      merges_(Merges::key_compare(), Merges::allocator_type(graph->zone())) {}
+SelectLowering::SelectLowering(JSGraphAssembler* graph_assembler,
+                               TFGraph* graph)
+    : graph_assembler_(graph_assembler), start_(graph->start()) {}
 
-
-SelectLowering::~SelectLowering() {}
-
+SelectLowering::~SelectLowering() = default;
 
 Reduction SelectLowering::Reduce(Node* node) {
   if (node->opcode() != IrOpcode::kSelect) return NoChange();
+  return LowerSelect(node);
+}
+
+#define __ gasm()->
+
+Reduction SelectLowering::LowerSelect(Node* node) {
   SelectParameters const p = SelectParametersOf(node->op());
 
-  Node* const cond = node->InputAt(0);
+  Node* condition = node->InputAt(0);
+  Node* vtrue = node->InputAt(1);
+  Node* vfalse = node->InputAt(2);
 
-  // Check if we already have a diamond for this condition.
-  auto i = merges_.find(cond);
-  if (i == merges_.end()) {
-    // Create a new diamond for this condition and remember its merge node.
-    Diamond d(graph(), common(), cond, p.hint());
-    i = merges_.insert(std::make_pair(cond, d.merge)).first;
+  bool reset_gasm = false;
+  if (gasm()->control() == nullptr) {
+    gasm()->InitializeEffectControl(start(), start());
+    reset_gasm = true;
   }
 
-  DCHECK_EQ(cond, i->first);
+  auto done = __ MakeLabel(p.representation());
 
-  // Create a Phi hanging off the previously determined merge.
-  node->set_op(common()->Phi(p.type(), 2));
-  node->ReplaceInput(0, node->InputAt(1));
-  node->ReplaceInput(1, node->InputAt(2));
-  node->ReplaceInput(2, i->second);
-  return Changed(node);
+  __ GotoIf(condition, &done, vtrue);
+  __ Goto(&done, vfalse);
+  __ Bind(&done);
+
+  if (reset_gasm) {
+    gasm()->Reset();
+  }
+
+  return Changed(done.PhiAt(0));
 }
+
+#undef __
 
 }  // namespace compiler
 }  // namespace internal

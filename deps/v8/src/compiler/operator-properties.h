@@ -5,22 +5,35 @@
 #ifndef V8_COMPILER_OPERATOR_PROPERTIES_H_
 #define V8_COMPILER_OPERATOR_PROPERTIES_H_
 
+#include "src/base/macros.h"
+
 namespace v8 {
 namespace internal {
 namespace compiler {
 
+// Forward declarations.
 class Operator;
 
-class OperatorProperties {
+class V8_EXPORT_PRIVATE OperatorProperties final {
  public:
-  static inline bool HasContextInput(const Operator* op);
-  static inline bool HasFrameStateInput(const Operator* op);
+  OperatorProperties(const OperatorProperties&) = delete;
+  OperatorProperties& operator=(const OperatorProperties&) = delete;
 
-  static inline int GetContextInputCount(const Operator* op);
-  static inline int GetFrameStateInputCount(const Operator* op);
-  static inline int GetTotalInputCount(const Operator* op);
+  static bool HasContextInput(const Operator* op);
+  static int GetContextInputCount(const Operator* op) {
+    return HasContextInput(op) ? 1 : 0;
+  }
 
-  static inline bool IsBasicBlockBegin(const Operator* op);
+  static bool NeedsExactContext(const Operator* op);
+
+  static bool HasFrameStateInput(const Operator* op);
+  static int GetFrameStateInputCount(const Operator* op) {
+    return HasFrameStateInput(op) ? 1 : 0;
+  }
+
+  static int GetTotalInputCount(const Operator* op);
+
+  static bool IsBasicBlockBegin(const Operator* op);
 };
 
 }  // namespace compiler

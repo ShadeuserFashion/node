@@ -1,115 +1,81 @@
-# Node.js core benchmark tests
+# Node.js Core Benchmarks
 
-This folder contains benchmark tests to measure the performance for certain
-Node.js APIs.
+This folder contains code and data used to measure performance
+of different Node.js implementations and different ways of
+writing JavaScript run by the built-in JavaScript engine.
 
-## How to run tests
+For a detailed guide on how to write and run benchmarks in this
+directory, see [the guide on benchmarks](../doc/contributing/writing-and-running-benchmarks.md).
 
-There are two ways to run benchmark tests:
+## Table of Contents
 
-1. Run all tests of a given type, for example, buffers
+* [File tree structure](#file-tree-structure)
+* [Common API](#common-api)
 
-```sh
-node benchmark/common.js buffers
-```
+## File tree structure
 
-The above command will find all scripts under `buffers` directory and require
-each of them as a module. When a test script is required, it creates an instance
-of `Benchmark` (a class defined in common.js). In the next tick, the `Benchmark`
-constructor iterates through the configuration object property values and run
-the test function with each of the combined arguments in spawned processes. For
-example, buffers/buffer-read.js has the following configuration:
+### Directories
 
-```js
-var bench = common.createBenchmark(main, {
-    noAssert: [false, true],
-    buffer: ['fast', 'slow'],
-    type: ['UInt8', 'UInt16LE', 'UInt16BE',
-        'UInt32LE', 'UInt32BE',
-        'Int8', 'Int16LE', 'Int16BE',
-        'Int32LE', 'Int32BE',
-        'FloatLE', 'FloatBE',
-        'DoubleLE', 'DoubleBE'],
-        millions: [1]
-});
-```
-The runner takes one item from each of the property array value to build a list
-of arguments to run the main function. The main function will receive the conf
-object as follows:
+Benchmarks testing the performance of a single node submodule are placed into a
+directory with the corresponding name, so that they can be executed by submodule
+or individually.
+Benchmarks that span multiple submodules may either be placed into the `misc`
+directory or into a directory named after the feature they benchmark.
+E.g. benchmarks for various new ECMAScript features and their pre-ES2015
+counterparts are placed in a directory named `es`.
+Fixtures that are not specific to a certain benchmark but can be reused
+throughout the benchmark suite should be placed in the `fixtures` directory.
 
-- first run:
-```js
-    {   noAssert: false,
-        buffer: 'fast',
-        type: 'UInt8',
-        millions: 1
-    }
-```
-- second run:
-```js
-    {
-        noAssert: false,
-        buffer: 'fast',
-        type: 'UInt16LE',
-        millions: 1
-    }
-```
-...
+### Other Top-level files
 
-In this case, the main function will run 2*2*14*1 = 56 times. The console output
-looks like the following:
+The top-level files include common dependencies of the benchmarks
+and the tools for launching benchmarks and visualizing their output.
+The actual benchmark scripts should be placed in their corresponding
+directories.
 
-```
-buffers//buffer-read.js
-buffers/buffer-read.js noAssert=false buffer=fast type=UInt8 millions=1: 271.83
-buffers/buffer-read.js noAssert=false buffer=fast type=UInt16LE millions=1: 239.43
-buffers/buffer-read.js noAssert=false buffer=fast type=UInt16BE millions=1: 244.57
-...
-```
+* `_benchmark_progress.js`: implements the progress bar displayed
+  when running `compare.js`
+* `_cli.js`: parses the command line arguments passed to `compare.js`,
+  `run.js` and `scatter.js`
+* `_cli.R`: parses the command line arguments passed to `compare.R`
+* `_http-benchmarkers.js`: selects and runs external tools for benchmarking
+  the `http` subsystem.
+* `bar.R`: R script for visualizing the output of benchmarks with bar plots.
+* `common.js`: see [Common API](#common-api).
+* `compare.js`: command line tool for comparing performance between different
+  Node.js binaries.
+* `compare.R`: R script for statistically analyzing the output of
+  `compare.js`
+* `run.js`: command line tool for running individual benchmark suite(s).
+* `scatter.js`: command line tool for comparing the performance
+  between different parameters in benchmark configurations,
+  for example to analyze the time complexity.
+* `scatter.R`: R script for visualizing the output of `scatter.js` with
+  scatter plots.
 
-2. Run an individual test, for example, buffer-slice.js
+## Common API
 
-```sh
-node benchmark/buffers/buffer-read.js
-```
-The output:
-```
-buffers/buffer-read.js noAssert=false buffer=fast type=UInt8 millions=1: 246.79
-buffers/buffer-read.js noAssert=false buffer=fast type=UInt16LE millions=1: 240.11
-buffers/buffer-read.js noAssert=false buffer=fast type=UInt16BE millions=1: 245.91
-...
-```
+The common.js module is used by benchmarks for consistency across repeated
+tasks. It has a number of helpful functions and properties to help with
+writing benchmarks.
 
-## How to write a benchmark test
+### `createBenchmark(fn, configs[, options])`
 
-The benchmark tests are grouped by types. Each type corresponds to a subdirectory,
-such as `arrays`, `buffers`, or `fs`.
+See [the guide on writing benchmarks](../doc/contributing/writing-and-running-benchmarks.md#basics-of-a-benchmark).
 
-Let's add a benchmark test for Buffer.slice function. We first create a file
-buffers/buffer-slice.js.
+### `default_http_benchmarker`
 
-### The code snippet
+The default benchmarker used to run HTTP benchmarks.
+See [the guide on writing HTTP benchmarks](../doc/contributing/writing-and-running-benchmarks.md#creating-an-http-benchmark).
 
-```js
-var common = require('../common.js'); // Load the test runner
+### `PORT`
 
-var SlowBuffer = require('buffer').SlowBuffer;
+The default port used to run HTTP benchmarks.
+See [the guide on writing HTTP benchmarks](../doc/contributing/writing-and-running-benchmarks.md#creating-an-http-benchmark).
 
-// Create a benchmark test for function `main` and the configuration variants
-var bench = common.createBenchmark(main, {
-  type: ['fast', 'slow'], // Two types of buffer
-  n: [512] // Number of times (each unit is 1024) to call the slice API
-});
+### `sendResult(data)`
 
-function main(conf) {
-  // Read the parameters from the configuration
-  var n = +conf.n;
-  var b = conf.type === 'fast' ? buf : slowBuf;
-  bench.start(); // Start benchmarking
-  for (var i = 0; i < n * 1024; i++) {
-    // Add your test here
-    b.slice(10, 256);
-  }
-  bench.end(n); // End benchmarking
-}
-```
+Used in special benchmarks that can't use `createBenchmark` and the object
+it returns to accomplish what they need. This function reports timing
+data to the parent process (usually created by running `compare.js`, `run.js` or
+`scatter.js`).

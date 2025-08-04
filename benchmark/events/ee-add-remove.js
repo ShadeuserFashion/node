@@ -1,23 +1,35 @@
-var common = require('../common.js');
-var events = require('events');
+'use strict';
+const common = require('../common.js');
+const { EventEmitter } = require('events');
 
-var bench = common.createBenchmark(main, {n: [25e4]});
+const bench = common.createBenchmark(main, {
+  newListener: [0, 1],
+  removeListener: [0, 1],
+  n: [1e6],
+});
 
-function main(conf) {
-  var n = conf.n | 0;
+function main({ newListener, removeListener, n }) {
+  const ee = new EventEmitter();
+  const listeners = [];
 
-  var ee = new events.EventEmitter();
-  var listeners = [];
+  for (let k = 0; k < 10; k += 1)
+    listeners.push(() => {});
 
-  for (var k = 0; k < 10; k += 1)
-    listeners.push(function() {});
+  if (newListener === 1)
+    ee.on('newListener', (event, listener) => {});
+
+  if (removeListener === 1)
+    ee.on('removeListener', (event, listener) => {});
 
   bench.start();
-  for (var i = 0; i < n; i += 1) {
-    for (var k = listeners.length; --k >= 0; /* empty */)
-      ee.on('dummy', listeners[k]);
-    for (var k = listeners.length; --k >= 0; /* empty */)
-      ee.removeListener('dummy', listeners[k]);
+  for (let i = 0; i < n; i += 1) {
+    const dummy = (i % 2 === 0) ? 'dummy0' : 'dummy1';
+    for (let k = listeners.length; --k >= 0; /* empty */) {
+      ee.on(dummy, listeners[k]);
+    }
+    for (let k = listeners.length; --k >= 0; /* empty */) {
+      ee.removeListener(dummy, listeners[k]);
+    }
   }
   bench.end(n);
 }
